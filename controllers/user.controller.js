@@ -1,5 +1,7 @@
 const asyncHandler = require("express-async-handler");
 const UserModel = require("../models/User.model");
+const { performOperation } = require('../redis');
+
 
 const followUser = asyncHandler(async (req, res) => {
     const { userId } = req.body;
@@ -20,6 +22,8 @@ const followUser = asyncHandler(async (req, res) => {
 
     await userToUnfollow.save();
     await currentUser.save();
+
+    await performOperation("currentUser", JSON.stringify(currentUser));
     res.status(200).json(`Followed ${userToUnfollow.username}`);
 
 })
@@ -43,6 +47,8 @@ const unfollowUser = asyncHandler(async (req, res) => {
 
     await userToUnfollow.save();
     await currentUser.save();
+
+    await performOperation("currentUser", JSON.stringify(currentUser));
     res.status(200).json(`Unfollowed ${userToUnfollow.username}`);
 
 })
@@ -51,7 +57,7 @@ const getUser = asyncHandler(async (req, res) => {
     const userId = req.params.id;
     const user = await UserModel.findById(userId).lean();
     const currentUser = await UserModel.findOne(req.user._id);
-    
+
     if(!user){
         res.status(404).json(`User doesn't exist`);
     }
@@ -62,7 +68,7 @@ const getUser = asyncHandler(async (req, res) => {
     }
     const { password, _id, __v, ...userWithoutSensitiveData } = user;
     res.status(200).json(userWithoutSensitiveData);
-    
+
 })
 
 module.exports = { followUser, unfollowUser, getUser }

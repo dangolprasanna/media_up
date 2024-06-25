@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken')
 const asynchandler = require('express-async-handler');
 const { default: mongoose } = require('mongoose');
 const UserModel = require('../models/User.model');
+const { performOperation } = require('../redis');
+
 
 const registerUser = asynchandler(async (req, res) => {
     const { username, email, password } = req.body;
@@ -19,8 +21,8 @@ const registerUser = asynchandler(async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await UserModel.create({
-        username, 
-        email, 
+        username,
+        email,
         password: hashedPassword
     })
 
@@ -39,7 +41,7 @@ const loginUser = asynchandler(async (req, res) => {
         res.status(400);
         throw new Error("Email or Password is missing");
     }
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email }).lean();
     if (user && (await bcrypt.compare(password, user.password))) {
         const accessToken = jwt.sign({
             user: {
@@ -57,8 +59,9 @@ const loginUser = asynchandler(async (req, res) => {
         res.status(401);
         throw new Error("Email or password in invalid");
     }
+    delete user.password;
+    await performOperation("currentUser", JSON.stringify(user), 3600);
 })
-
 
 module.exports = { registerUser, loginUser }
 

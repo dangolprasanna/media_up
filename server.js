@@ -2,12 +2,11 @@ const express = require('express');
 const dotenv = require('dotenv');
 dotenv.config();
 const { default: mongoose } = require('mongoose');
+const { validateToken } = require('./middlewares/auth.middleware')
 
-const {validateToken} = require('./middlewares/auth.middleware')
 const authRouter = require('./routes/auth.router');
 const userRouter = require('./routes/user.router');
 const postRouter = require('./routes/post.router');
-// const consumer = require('./kafka/consumer')
 
 const app = express();
 app.use(express.json());
