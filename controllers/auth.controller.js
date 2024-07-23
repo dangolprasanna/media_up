@@ -4,7 +4,7 @@ const asynchandler = require('express-async-handler');
 const { default: mongoose } = require('mongoose');
 const UserModel = require('../models/User.model');
 const { performOperation } = require('../redis');
-
+const { setupClient } = require('../client');
 
 const registerUser = asynchandler(async (req, res) => {
     const { username, email, password } = req.body;
@@ -54,13 +54,14 @@ const loginUser = asynchandler(async (req, res) => {
             { expiresIn: "60m" }
         )
         res.status(200).json({ accessToken })
+        delete user.password;
+        await performOperation(user._id.toString(), JSON.stringify(user), 3600);
+        setupClient(user.username);
     }
     else {
         res.status(401);
         throw new Error("Email or password in invalid");
     }
-    delete user.password;
-    await performOperation("currentUser", JSON.stringify(user), 3600);
 })
 
 module.exports = { registerUser, loginUser }

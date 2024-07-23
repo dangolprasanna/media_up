@@ -55,6 +55,8 @@ const commentPost = asyncHandler(async (req, res) => {
 
     post.comments.push(comment);
     await post.save();
+
+    await performOperation(postId, JSON.stringify(comment))
     res.status(200).json({ post });
 })
 
@@ -79,9 +81,23 @@ const getLikes = asyncHandler(async (req, res) => {
     res.status(200).json({ likes: likedBy })
 })
 
+const getComments = asyncHandler(async (req, res) => {
+    const postId = req.params.id;
+    let likedBy = await fetchFromRedis(postId);
+    if (!likedBy) {
+        const post = await PostModel.findById(postId);
+        if (!post) {
+            return res.status(400).json({ message: 'Post does not exist' });
+        }
+        likedBy = post.like;
+        await performOperation(postId, JSON.stringify(likedBy));
+    }
+    res.status(200).json({ likes: likedBy })
+})
+
 const getAllPostsByUser = asyncHandler(async (req, res) => {
     const userId = req.params.userId;
-    let currentUser = await client.get("currentUser");
+    let currentUser = await fetchFromRedis(req.user.id);
     currentUser = JSON.parse(currentUser);
 
     if (currentUser.following.includes(userId)) {
@@ -96,4 +112,4 @@ const getAllPostsByUser = asyncHandler(async (req, res) => {
 
 })
 
-module.exports = { createPost, likePost, commentPost, getPosts, getLikes, getAllPostsByUser }
+module.exports = { createPost, likePost, commentPost, getPosts, getLikes, getAllPostsByUser, getComments }
