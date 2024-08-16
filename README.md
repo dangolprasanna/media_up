@@ -1,7 +1,3 @@
-Here’s a sample `README.md` for your Node.js project that includes Kafka, rate limiting, and other features:
-
----
-
 # Social Media Platform API
 
 This project is a Node.js-powered backend API for a social media platform where users can create posts, comment, like, and receive real-time notifications. It also includes a Kafka integration for event-driven architecture and a rate-limiting system to control user activity.
