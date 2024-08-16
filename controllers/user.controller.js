@@ -1,13 +1,13 @@
 const asyncHandler = require("express-async-handler");
 const UserModel = require("../models/User.model");
+const NotificationModel = require('../models/Notification.model')
 const { performOperation } = require('../redis');
-// const { emitEventToUser } = require('../webSocket')
 const { sendNotification } = require('../client');
 
 const followUser = asyncHandler(async (req, res) => {
     const { userId } = req.body;
-    if(userId === req.user.id){
-        return res.status(400).json({message: "User is trying to follow yourself"});
+    if (userId === req.user.id) {
+        return res.status(400).json({ message: "User is trying to follow yourself" });
     }
 
     const userToFollow = await UserModel.findById(userId);
@@ -28,8 +28,15 @@ const followUser = asyncHandler(async (req, res) => {
     await currentUser.save();
 
     await performOperation(currentUser._id.toString(), JSON.stringify(currentUser), 3600);
+    const notification = await NotificationModel({
+        userId: userToFollow._id,
+        senderId: currentUser._id,
+        type: 'follow',
+        message: `${currentUser.username} has followed you`,
+    });
 
-    sendNotification(userToFollow._id, "follow", `${currentUser.username} has followed you`);
+    await notification.save();
+    sendNotification(userToFollow._id, "send", `${currentUser.username} has followed you`);
     res.status(200).json(`Followed ${userToFollow.username}`);
 })
 
@@ -51,6 +58,12 @@ const unfollowUser = asyncHandler(async (req, res) => {
 
     await userToUnfollow.save();
     await currentUser.save();
+
+    await NotificationModel.deleteOne({
+        userId: userToUnfollow._id,
+        senderId: currentUser._id,
+        type: 'follow'
+    });
 
     await performOperation(currentUser._id.toString(), JSON.stringify(currentUser), 3600);
 

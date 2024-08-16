@@ -1,8 +1,11 @@
 const asyncHandler = require('express-async-handler');
 const PostModel = require('../models/Post.model');
 const UserModel = require('../models/User.model');
+const NotificationModel = require('../models/Notification.model')
 const { performOperation, fetchFromRedis } = require('../redis');
+const { sendNotification } = require('../client');
 
+//create Post
 const createPost = asyncHandler(async (req, res) => {
     const { content } = req.body;
     if (!content) {
@@ -15,10 +18,10 @@ const createPost = asyncHandler(async (req, res) => {
         content
     })
 
-    // sendEvent('new_post', post); 
     res.status(200).json({ post })
 })
 
+//like post
 const likePost = asyncHandler(async (req, res) => {
     const postId = req.params.id;
     const post = await PostModel.findById(postId);
@@ -34,12 +37,24 @@ const likePost = asyncHandler(async (req, res) => {
     } else {
         post.like.push(currentUser._id.toString());
         res.status(200).send(`${currentUser.username} liked the post`)
+        sendNotification(post.user, "send", `${currentUser.username} has liked ${post.content}`);
+
+        const notification = await NotificationModel({
+            userId: post.user,
+            senderId: currentUser._id,
+            type: 'like',
+            postId: postId,
+            message: `${currentUser.username} has liked ${post.content}`,
+        });
+
+        await notification.save();
+
     }
     await post.save();
-
     await performOperation(postId, data.toString());
 })
 
+//commentPost
 const commentPost = asyncHandler(async (req, res) => {
     const postId = req.params.id;
     const post = await PostModel.findById(postId);
@@ -56,7 +71,21 @@ const commentPost = asyncHandler(async (req, res) => {
     post.comments.push(comment);
     await post.save();
 
-    await performOperation(postId, JSON.stringify(comment))
+    await performOperation(postId, JSON.stringify(post))
+
+    sendNotification(post.user, "send", `${currentUser.username} has commented ${comment.content} on ${post.content}`);
+    const notification = await NotificationModel({
+        userId: post.user,
+        senderId: currentUser._id,
+        type: 'comment',
+        postId: postId,
+        message: `${currentUser.username} has commented ${comment.content} on ${post.content}`,
+    });
+
+    await notification.save();
+    const userNotification = await NotificationModel.find({ userId: post.user    })
+    performOperation(post.user + "n", JSON.stringify(userNotification))
+
     res.status(200).json({ post });
 })
 

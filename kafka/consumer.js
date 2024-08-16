@@ -1,15 +1,21 @@
-const kafka = require('kafka-node');
 const Consumer = kafka.Consumer;
-const client = new kafka.KafkaClient();
-const consumer = new Consumer(client, [{ topic: 'new_post' }, { topic: 'like_post' }, { topic: 'comment_post' }], { autoCommit: true });
+const consumer = new Consumer(client, [{ topic: 'user_notifications' }], { autoCommit: true });
 
-consumer.on('message', (message) => {
-  console.log('Kafka Consumer received message:', message);
-  // Handle the message
+consumer.on('message', async (message) => {
+    const notificationData = JSON.parse(message.value);
+
+    // Save to MongoDB
+    const notification = await NotificationModel.create({
+        userId: notificationData.userId,
+        senderId: notificationData.senderId,
+        type: notificationData.type,
+        postId: notificationData.postId,
+        message: notificationData.message,
+    });
+
+    // Send real-time notification via Socket.IO
+    io.to(notification.userId).emit('notification', notification.message);
+
+    // Update Redis Cache
+    await performOperation(notification.userId + 'n', JSON.stringify(notification));
 });
-
-consumer.on('error', (err) => {
-  console.error('Kafka Consumer error:', err);
-});
-
-module.exports = consumer;

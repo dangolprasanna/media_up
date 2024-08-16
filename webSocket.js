@@ -4,26 +4,38 @@ const userSocketMap = new Map();
 let io;
 
 function initializeSocket(server) {
-    io = socketIO(server);
+    io = socketIO(server, {
+        cors: {
+            origin: "*", // Allow only this origin
+            methods: ["GET", "POST"],
+            allowedHeaders: ["my-custom-header"],
+            credentials: false
+        }
+    });
+
+
 
     io.on('connection', socket => {
 
         socket.on('identify', userId => {
-            userSocketMap.set(userId, socket.id);
-            socket.userId = userId;
-            console.log(`UserName: ${userId} | socketID: ${socket.id}`);
+            if (userSocketMap.has(userId)) {
+                console.log("User already connected.")
+            }
+            else {
+                userSocketMap.set(userId, socket.id);
+                socket.userId = userId;
+                console.log(`UserName: ${userId} | socketID: ${socket.id}`);
+            }
         });
 
-        socket.on('follow', (userId, eventData) => {
+        socket.on('send', (userId, eventData) => {
             const recipientSocketId = userSocketMap.get(userId);
 
             if (recipientSocketId) {
-                io.to(recipientSocketId).emit('notification', eventData);
-                console.log(`Follow notification sent to user ${userId}`);
+                io.to(recipientSocketId).emit('notification', eventData);                
             } else {
-                console.log(`User ${userId} not found`);
+                console.log(`User ${userId} not found or connected`);
             }
-
         });
 
         socket.on('privateMessage', ({ recipient, message }) => {
@@ -35,12 +47,11 @@ function initializeSocket(server) {
             }
         });
 
-
         socket.on('disconnect', () => {
             for (let [userId, socketId] of userSocketMap.entries()) {
                 if (socketId === socket.id) {
                     console.log(`User ${userId} with socket ${socket.id} disconnected`);
-                      userSocketMap.delete(userId);
+                    userSocketMap.delete(userId);
                     break;
                 }
             }
@@ -49,15 +60,5 @@ function initializeSocket(server) {
 
     return io;
 }
-
-// function emitEventToUser(userId, eventType, eventData) {
-//     // const socketId = userSocketMap.get(userId);
-
-//     // if (socketId) {
-//         io.to(userId).emit(eventType, eventData);
-//     // } else {
-//     //     console.log(`User ${userId} not connected.`);
-//     // }
-// }
 
 module.exports = { initializeSocket, userSocketMap };

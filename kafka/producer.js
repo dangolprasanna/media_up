@@ -1,21 +1,24 @@
 const kafka = require('kafka-node');
 const Producer = kafka.Producer;
-const client = new kafka.KafkaClient();
+const client = new kafka.KafkaClient({ kafkaHost: process.env.KAFKA_BROKER_URL });
 const producer = new Producer(client);
 
-producer.on('ready', () => {
-  console.log('Kafka Producer is connected and ready.');
-});
-
-producer.on('error', (err) => {
-  console.error('Kafka Producer error:', err);
-});
-
-const sendEvent = (topic, message) => {
-  const payloads = [{ topic, messages: JSON.stringify(message) }];
-  producer.send(payloads, (err, data) => {
-    if (err) console.error('Kafka Producer send error:', err);
-  });
+const publishEventToKafka = (topic, message) => {
+    const payloads = [{ topic, messages: JSON.stringify(message) }];
+    producer.send(payloads, (err, data) => {
+        if (err) {
+            console.error('Failed to send message to Kafka', err);
+        } else {
+            console.log('Message sent to Kafka:', data);
+        }
+    });
 };
 
-module.exports = { sendEvent };
+// Example usage inside likePost:
+publishEventToKafka('user_notifications', {
+    userId: post.user,
+    senderId: currentUser._id,
+    type: 'like',
+    postId: postId,
+    message: `${currentUser.username} has liked ${post.content}`,
+});
